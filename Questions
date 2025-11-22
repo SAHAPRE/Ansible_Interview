@@ -1,0 +1,584 @@
+Ansible Interview Questions
+1. What is  inventory file used for and default inventory host location?
+
+  The Ansible inventory file defines the hosts and groups of hosts upon which commands, modules, and tasks in a playbook operate. The file can be in
+  one of many formats depending on your Ansible environment and plugins. The default location for the inventory file is /etc/ansible/hosts. 
+  If necessary, you can also create project-specific inventory files in alternate locations.
+
+2. What is ansible configuration file used for and its default path?
+  
+  If you want to modify some settings in ansible we will use ansible configuration file. The default path will be /etc/ansible/ansible.cfg
+  
+3. Do you write your inventory file?
+ Yes
+
+4. How many types of variables and precedence?
+
+There are almost 16 variable precedence in ansible where extra vars have highist precedence
+Inventory variables
+
+Host variables
+
+Group variables
+
+Playbook variables
+
+Role variables
+
+Facts (gathered automatically)
+
+Extra vars (passed via command line)
+
+5. Write the command to find the python version on nodes? python3 --version
+
+6. What is the file structure of ansible roles?
+
+## 🧩 **What is an Ansible Role?**
+
+An **Ansible Role** is a way to **organize your playbooks** and **reuse automation code** easily.
+It breaks down playbooks into smaller, structured components — each role manages a specific function (like installing nginx, configuring users, 
+deploying an app, etc.).
+
+---
+
+## 📁 **Standard File Structure of an Ansible Role**
+
+When you create a role (e.g., `nginx`), the directory structure looks like this:
+
+```
+roles/
+└── nginx/
+    ├── defaults/
+    │   └── main.yml
+    ├── files/
+    │   └── index.html
+    ├── handlers/
+    │   └── main.yml
+    ├── meta/
+    │   └── main.yml
+    ├── tasks/
+    │   └── main.yml
+    ├── templates/
+    │   └── nginx.conf.j2
+    ├── tests/
+    │   ├── inventory
+    │   └── test.yml
+    └── vars/
+        └── main.yml
+```
+
+Let’s understand each folder 👇
+
+---
+
+### **1️⃣ defaults/**
+
+* Contains **default variables** for the role.
+* Lowest priority in variable precedence.
+* Used when you want values that can be overridden later.
+
+📄 `defaults/main.yml`
+
+```yaml
+---
+port: 80
+```
+
+---
+
+### **2️⃣ vars/**
+
+* Contains variables with **higher precedence** than defaults.
+* Used when you want to **lock certain values** that should rarely be overridden.
+
+📄 `vars/main.yml`
+
+```yaml
+---
+service_name: nginx
+```
+
+---
+
+### **3️⃣ files/**
+
+* Stores **static files** that are directly copied to remote machines using the `copy` or `script` modules.
+
+📄 Example:
+
+```
+roles/nginx/files/index.html
+```
+
+In playbook:
+
+```yaml
+- name: Copy index page
+  copy:
+    src: index.html
+    dest: /usr/share/nginx/html/index.html
+```
+
+---
+
+### **4️⃣ templates/**
+
+* Contains **Jinja2 template files (`.j2`)**.
+* Used when you need dynamic content based on variables.
+
+📄 Example:
+
+```
+roles/nginx/templates/nginx.conf.j2
+```
+
+```yaml
+server {
+  listen {{ port }};
+  server_name {{ ansible_hostname }};
+}
+```
+
+---
+
+### **5️⃣ tasks/**
+
+* Contains **main.yml**, which defines the **sequence of tasks** executed by the role.
+* This is the core of the role.
+
+📄 `tasks/main.yml`
+
+```yaml
+---
+- name: Install nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: Start nginx service
+  service:
+    name: nginx
+    state: started
+```
+
+---
+
+### **6️⃣ handlers/**
+
+* Contains **main.yml** with **handlers** — special tasks triggered by `notify` when a change occurs.
+
+📄 `handlers/main.yml`
+
+```yaml
+---
+- name: restart nginx
+  service:
+    name: nginx
+    state: restarted
+```
+
+In task:
+
+```yaml
+- name: Update config
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+  notify: restart nginx
+```
+
+---
+
+### **7️⃣ meta/**
+
+* Defines **metadata** about the role such as:
+
+  * Role dependencies
+  * Author info
+  * Supported platforms
+
+📄 `meta/main.yml`
+
+```yaml
+---
+dependencies:
+  - role: common
+```
+
+---
+
+### **8️⃣ tests/**
+
+* Used to test your role.
+* Usually contains a sample inventory and playbook.
+
+📄 Example:
+
+```
+tests/
+├── inventory
+└── test.yml
+```
+
+---
+
+## ⚙️ **Command to Create a Role Automatically**
+
+You can create this structure using:
+
+```bash
+ansible-galaxy init nginx
+```
+
+This command auto-generates the complete directory structure shown above.
+
+---
+
+## ✅ **Summary Table**
+
+| Directory      | Purpose                               |
+| -------------- | ------------------------------------- |
+| **tasks/**     | Main list of tasks to execute         |
+| **handlers/**  | Define actions triggered by tasks     |
+| **files/**     | Store static files to copy            |
+| **templates/** | Jinja2 templates for dynamic configs  |
+| **vars/**      | Variables with high precedence        |
+| **defaults/**  | Default variables with low precedence |
+| **meta/**      | Role metadata and dependencies        |
+| **tests/**     | Test inventory and playbooks          |
+
+7. What happen when one node or instance is unreachable?
+If a target node is unreachable during Ansible execution:
+
+🔍 What Happens
+
+Ansible marks the host as “UNREACHABLE” and skips it.
+
+Playbook continues with other reachable hosts.
+
+Example message:
+
+fatal: [webserver1]: UNREACHABLE! => {"changed": false, "msg": "SSH Error", "unreachable": true}
+
+⚙️ What You Can Do
+
+Use ignore_unreachable: yes in playbook to continue.
+
+Or fix the network / SSH issue and re-run the playbook — Ansible is idempotent, so only missing changes will be applied.
+
+8. What happen when one task  is failed in playbook?
+When a task fails in an Ansible playbook, execution for that host stops by default, but continues on other hosts.
+We can modify this behavior using options like ignore_errors, failed_when, or block-rescue to handle errors gracefully.”
+
+9. I have 20 servers , I want to install one package in 5 servers and other package in next 5 servers..like that How to write 
+in ansible script for that…Explain?
+
+10. What is the architecture of ansible?
+Ansible Architecture consists of a control node that manages multiple managed nodes (servers) via SSH/WinRM.
+It uses inventories to define targets, modules to perform tasks, and playbooks to orchestrate automation in a push-based, 
+agentless manner.
+The architecture is lightweight, modular, and extensible — suitable for both on-prem and cloud environments.
+
+11. How do I supply variables while executing the playbook in ansible?
+ansible-playbook your_playbook.yml --extra-vars "key1=value1 key2=value2"
+
+12. Explain about the tags in ansible?
+Ansible tags are labels assigned to tasks or plays to allow for selective execution of a playbook. You can run only the tasks
+ with matching tags by using the --tags command-line option
+ ansible-playbook my_playbook.yml --tags web
+ansible-playbook my_playbook.yml --tags web,database
+
+13. How to execute failure playbook again?
+## 🧩 **When a Playbook Fails**
+
+If an Ansible playbook fails partway (for example, due to network issues, unreachable host, or a task error):
+
+* Ansible **stops executing tasks** for the failed hosts.
+* Other hosts (that didn’t fail) continue normally.
+* The failed hosts are marked as **“FAILED”** in the summary.
+
+Now, you want to **re-run the playbook only for the failed hosts** — not start everything again.
+## ✅ **1️⃣ Using the Retry File (Recommended Method)**
+
+When a playbook fails, Ansible automatically creates a **retry file**.
+It contains the list of hosts that failed.
+
+Example:
+
+```
+playbook.retry
+```
+
+Contents might look like:
+
+```
+web1
+web3
+```
+
+---
+
+### ▶️ **Re-run the playbook for failed hosts only**
+
+You can re-run it using:
+
+```bash
+ansible-playbook site.yml --limit @playbook.retry
+```
+
+📘 Explanation:
+
+* `--limit` restricts playbook execution to listed hosts.
+* `@playbook.retry` tells Ansible to use the hosts from the retry file.
+
+✅ **Result:**
+Only failed hosts are targeted and the playbook resumes from the start (but Ansible’s **idempotency** ensures already successful tasks are skipped).
+
+---
+
+## ✅ **2️⃣ Run with --limit Manually**
+
+If you know which hosts failed (say, `web1` and `web3`), you can limit directly:
+
+```bash
+ansible-playbook site.yml --limit "web1,web3"
+```
+
+✅ Useful if you deleted the retry file or want more control.
+
+---
+
+## ✅ **3️⃣ Use Ansible’s Idempotency**
+
+Even if you re-run the **same playbook on all hosts**,
+Ansible will **only apply changes where needed** — because modules like `apt`, `service`, and `file` are **idempotent**.
+
+So, you can safely run:
+
+```bash
+ansible-playbook site.yml
+```
+
+➡️ Already-successful tasks will show as “ok”, and failed ones will execute again.
+
+## 🏁 **Interview-Ready Answer**
+
+> “When a playbook fails, Ansible creates a `.retry` file containing failed hosts.
+> I can re-run the playbook for those hosts using `ansible-playbook site.yml --limit @site.retry`.
+> Since Ansible is idempotent, re-running will skip already completed tasks and fix only failed parts.”
+
+
+14. How is ansible diffrent than any other configuration management tool?
+
+15. Ansible playbooks are written in what format? YML
+
+16. What is a module in Ansible?
+An Ansible module is a small program, typically written in Python, that performs a specific task on a remote host or other system. These modules 
+are the building blocks of Ansible automation, used to perform actions like managing configurations, deploying applications, or provisioning cloud 
+resources, and are executed via the command line or in playbooks
+
+17. What is inventory used for in ansible? 
+
+18. Name three places where ansible variables can be stored?
+You can define variables in a variety of places, such as in inventory, in playbooks, in reusable files, in roles, and at the command line.
+
+19. What connection anible establishes with  linux and windows node.
+
+20. Diffrence between Remote and local execution in ansible.
+Local Execution:
+Tasks are executed on the control node itself, where the ansible-playbook or ansible command is initiated.
+This is achieved by targeting localhost in your playbook or using the delegate_to: localhost directive for specific tasks.
+Remote- target nodes execution
+21. What is the purpose and location of ansible.cfg file.
+
+22. Name any two settings from anible.cfg file.
+#executable = /bin/sh
+log path
+inventories path
+# SSH timeout
+#timeout = 10
+remote user= root
+
+23. Please write below a sample inventory file with host, group & group of groups syntax in it.
+
+24. What is the diffrence between group_vars & host_vars directory?
+The main difference is that group_vars apply variables to all hosts within a specific group, while host_vars apply variables to individual hosts.
+
+25. What are adhocs commands used for & write below syntax of a adhocs command?
+Ad hoc commands are one-line commands used for performing quick, one-off tasks on remote systems, such as checking a service status or installing
+ a package, without writing a full playbook. 
+ Copy a file to a host:
+ansible host-name -m copy -a "src=/path/to/local/file dest=/path/on/remote/file" 
+host-name	The target host or group (as defined in your inventory file)
+-m copy	Specifies the module — here it’s the copy module
+-a	Passes arguments to the module
+
+26. Write below ad hoc command to gather fact varibales on all the hosts from the inventory file?
+ansible all -m ansible.builtin.setup -i /path/to/your/inventory_file
+
+27. What format does ansible ad hoc command returns the output?
+
+28. Name three types of modules in ansible?
+
+29. Name any 10 modules in ansible that you have used.
+
+30. How to list all the ansible core modules from command line. -- ansible-doc -l
+
+31. How to display all the options/attributes for apt module from command line.
+
+32. How can you check mandatory option for any module from command line?
+
+33. What is setup module used for? gather facts
+“In Ansible, facts are system information collected from managed hosts using the setup module.
+Facts include details like OS, IP, memory, and CPU.
+They are gathered automatically at the start of a playbook, but we can disable them with gather_facts: no or gather them manually using the setup module.”
+By default, facts are gathered automatically at the beginning of every playbook run.
+
+This happens through a special module called setup.
+
+You’ll see a task like this at the start of playbook execution:
+Facts are pieces of information that Ansible automatically collects about remote systems before running tasks.
+
+They describe the system state — like OS type, IP address, memory, CPU, hostname, network interfaces, etc.
+34. Write down sample global play declaration
+
+35. Write down any two tasks from playbook with its proper format and names.
+
+36. Whats is the diffrence between sudo and become module and its purpose.
+
+37. Write down playbook syntax of starting ntp service on webserver and dbservers host group at once.
+
+38. How to take user input from a playbook?
+
+39. What is debug module used for in playbooks?
+Used to display debugging information — like text messages, variable values, or registered output — on the terminal.
+
+40. How to store output of any task into a varible from playbook?
+
+41. What are handlers used for in ansible and how is it diffrent from tasks?
+Handlers are special tasks in Ansible that run only when notified by another task.
+They are typically used to perform actions that should happen only when something changes — such as restarting a service after a configuration
+ file is modified.
+42. Conditional execution in ansible is used for what purpose and write down its syntax with small description?
+
+43. What are templates used for and its format?
+
+44. What are ansible roles and its purpose?
+Ansible Roles are a way to organize playbooks and reusable automation code in a structured, modular format.
+
+They allow you to break a large playbook into smaller, reusable components — like tasks, handlers, variables, templates, and files —
+ grouped together logically.
+45. Command to generate ansible roles directory structure.
+
+46. Name 5 directories from ansible roles.
+
+Ansible interview Questions
+
+
+47. What is {{ }} symbol used for in ansible.
+In Ansible, the {{ }} (double curly braces) are used for variable interpolation or expression evaluation — meaning they tell Ansible to replace
+ whatever is inside them with its actual value at runtime.
+48. Write down all the places where we can define variables according to its precedence.
+
+49. Write down syntax of dictionary variable?
+
+TRUE or FALSE
+
+
+50. Setup module gets executed after executing any ad hoc command.
+True
+False
+
+51. Anible playbooks are written in XML format.
+True
+False
+
+52. ansible.cfg file is list of plays.
+True
+False
+
+
+
+53. Fact variables is generated by ansible and we do not need to create fact varibales.
+True
+False
+
+54. Anible is written in Python langueage.
+True
+False
+
+55. Ansible works on Master and client relationship, where ansible control server package is installed on master and ansible client package is installed on all the clients.
+True
+False
+
+56. Ansible loop module is with_items.
+True
+False
+
+57. All the templates in ansible roles has to be defined in main.yml file inside templates directory.
+True
+False
+
+58. All the roles uploaded in ansible galaxy website is written and owned by Ansible inc(organization).
+True
+False
+
+59. Ansible can only get installed on Linux machine but can manage Linux and windows nodes.
+True
+False
+
+
+60. Write a Ansible task that can copy the file to remote location with the ownership of Jboss?
+
+
+61. What is local action in Ansible?
+
+
+62. What are the roles in Ansible?
+
+
+63. Write a playbook for installation of apache in ubuntu and centos?
+
+
+64.How to create a role in ansible?
+
+
+65. Different types of inventories in ansible?
+
+
+66. if we want system information of machine how we will get the data with ansible like we use facter in puppet ?
+
+67. In which language we write playbooks in ansible?
+
+68. Activity that we use with ansibles or advantage Functionality or purpose of ansible using in your project?
+
+69. How to launch an LDAP server using ansible?
+
+70. How ansible works.. and what are the playbook written other than the basic playbooks ?
+
+71. For example there are 4 aps server running and 4 websers running and we have a new code change and this change should automatically copy to these different servers using ansible, how I will come to know new code is generated.
+
+Use Jenkins with POLL SCM option and after artifact is generated  using ansible to push suing copy module.
+
+72. Have u done any automation like app goes down then for self healing of the app kind of the thing. 73 .Have  u written any playbook. Explain it
+74. what is a dynamic inventory  in ansible?
+A Dynamic Inventory is an inventory source generated automatically — typically by running a script or plugin that queries a cloud provider’s API (like AWS EC2, Azure, GCP, Kubernetes, etc.) — to get a list of servers at runtime.
+
+📘 In simple terms:
+
+Dynamic inventory automatically fetches the list of hosts and their details from external sources (like AWS, Terraform, Kubernetes) — no need to
+ manually update IPs.
+75.  How can you manage cloud services with ansible?
+76. How can you protect sensitive information in ansible?
+77. How can you save the output of module execution in ansible?
+78. How can you manage error handling?
+79. what are conditionals in ansible?
+80. write a playbook to create AMI on AWS?
+81. How can you the fact varibales in ansible?
+82. can we create an ansible module ?
+83 .  How can you do provisioning with ansible?
+84 . BASH Vs Python Vs Configuration Management Tools?
+85.  How can you update a single table in a Database with ansible?
+86. What type of roles you used in your playbook explain ?
+87. How to create and use the Dynamic inventory ?
+88. Write a playbook for installing AppDynamics and configure the agents for the same ? 
